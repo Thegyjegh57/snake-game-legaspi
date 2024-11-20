@@ -1,0 +1,427 @@
+<html><head><base href="." /><title>Snake Game - Classic & Campaign</title><style>
+body {
+    background: linear-gradient(0deg, 
+        #ff6b6b 0%, 
+        #ff9e64 30%, 
+        #ffd93d 60%, 
+        #6c5ce7 100%);
+    color: #fff;
+    font-family: 'Press Start 2P', system-ui;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#gameContainer {
+    position: relative;
+    width: 800px;
+    margin: 20px auto;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    display: none; /* Initially hide game container */
+}
+
+#mainMenu {
+    background: rgba(0, 0, 0, 0.8);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 50px auto;
+    width: 600px;
+}
+
+.menu-title {
+    font-size: 48px;
+    color: #4CAF50;
+    margin-bottom: 40px;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+.menu-button {
+    width: 300px;
+    padding: 20px;
+    font-size: 20px;
+    background: #4CAF50;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.menu-button:hover {
+    transform: scale(1.05);
+    background: #45a049;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+}
+
+canvas {
+    border: 4px solid #4CAF50;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.menu {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+button {
+    background: #4CAF50;
+    border: none;
+    color: white;
+    padding: 15px 30px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Press Start 2P', system-ui;
+    font-size: 16px;
+    transition: transform 0.2s;
+}
+
+button:hover {
+    transform: scale(1.05);
+    background: #45a049;
+}
+
+#score {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+#levelInfo {
+    font-size: 18px;
+    color: #4CAF50;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.game-over {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    display: none;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.food {
+    animation: pulse 0.5s infinite;
+}
+
+.sunset-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    opacity: 0.3;
+}
+</style></head><body>
+<svg class="sunset-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <circle cx="50" cy="90" r="30" fill="#ff6b6b" />
+    <rect x="0" y="90" width="100" height="10" fill="#4a4a4a" />
+</svg>
+
+<div id="mainMenu">
+    <h1 class="menu-title">SNAKE GAME</h1>
+    <div class="menu-buttons">
+        <button class="menu-button" onclick="startGameFromMenu('classic')">Classic Mode</button>
+        <button class="menu-button" onclick="startGameFromMenu('campaign')">Campaign Mode</button>
+        <button class="menu-button" onclick="showControls()">How to Play</button>
+    </div>
+</div>
+
+<div id="gameContainer">
+    <div class="menu">
+        <button id="classicMode">Classic Mode</button>
+        <button id="campaignMode">Campaign Mode</button>
+        <button id="mainMenuButton">Main Menu</button>
+    </div>
+    <div id="levelInfo"></div>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="game-over" id="gameOver">
+        <h2>Game Over!</h2>
+        <p id="finalScore"></p>
+        <button id="restartButton">Play Again</button>
+        <button onclick="showMainMenu()">Main Menu</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const GRID_SIZE = 20;
+const SNAKE_SPEED_CLASSIC = 150;
+
+let snake = [];
+let food = {};
+let direction = 'right';
+let score = 0;
+let gameLoop;
+let gameMode = 'classic';
+let currentLevel = 1;
+let snakeSpeed = SNAKE_SPEED_CLASSIC;
+
+// Campaign mode configurations
+const campaignLevels = [
+    { speed: 150, obstacles: [], targetScore: 5 },
+    { speed: 130, obstacles: [{x: 20, y: 20, width: 3, height: 1}], targetScore: 10 },
+    { speed: 110, obstacles: [{x: 15, y: 15, width: 4, height: 1}, {x: 15, y: 25, width: 4, height: 1}], targetScore: 15 },
+];
+
+function showMainMenu() {
+    document.getElementById('gameContainer').style.display = 'none';
+    document.getElementById('mainMenu').style.display = 'block';
+    clearInterval(gameLoop);
+}
+
+function showControls() {
+    alert('Use Arrow Keys to control the snake!\n\n↑ - Move Up\n↓ - Move Down\n← - Move Left\n→ - Move Right');
+}
+
+function startGameFromMenu(mode) {
+    document.getElementById('mainMenu').style.display = 'none';
+    document.getElementById('gameContainer').style.display = 'block';
+    startGame(mode);
+}
+
+function initGame() {
+    snake = [{x: 10, y: 10}];
+    direction = 'right';
+    score = 0;
+    updateScore();
+    generateFood();
+    if (gameMode === 'campaign') {
+        currentLevel = 1;
+        snakeSpeed = campaignLevels[0].speed;
+        updateLevelInfo();
+    } else {
+        snakeSpeed = SNAKE_SPEED_CLASSIC;
+        document.getElementById('levelInfo').textContent = '';
+    }
+}
+
+function generateFood() {
+    food = {
+        x: Math.floor(Math.random() * (canvas.width / GRID_SIZE)),
+        y: Math.floor(Math.random() * (canvas.height / GRID_SIZE))
+    };
+    
+    while (isCollisionWithSnake(food) || isCollisionWithObstacles(food)) {
+        food = {
+            x: Math.floor(Math.random() * (canvas.width / GRID_SIZE)),
+            y: Math.floor(Math.random() * (canvas.height / GRID_SIZE))
+        };
+    }
+}
+
+function updateScore() {
+    document.getElementById('score').textContent = `Score: ${score}`;
+}
+
+function updateLevelInfo() {
+    if (gameMode === 'campaign') {
+        document.getElementById('levelInfo').textContent = 
+            `Level ${currentLevel} - Target Score: ${campaignLevels[currentLevel-1].targetScore}`;
+    }
+}
+
+function drawGame() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw snake body
+    ctx.fillStyle = '#4CAF50';
+    snake.forEach((segment, index) => {
+        ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE-2, GRID_SIZE-2);
+        
+        // Draw face on the head segment
+        if (index === 0) {
+            // Eyes
+            ctx.fillStyle = '#000';
+            let eyeOffset = 5;
+            
+            // Adjust eye positions based on direction
+            if (direction === 'right') {
+                ctx.fillRect((segment.x * GRID_SIZE) + GRID_SIZE - 8, (segment.y * GRID_SIZE) + 4, 4, 4);
+                ctx.fillRect((segment.x * GRID_SIZE) + GRID_SIZE - 8, (segment.y * GRID_SIZE) + 12, 4, 4);
+            } else if (direction === 'left') {
+                ctx.fillRect((segment.x * GRID_SIZE) + 4, (segment.y * GRID_SIZE) + 4, 4, 4);
+                ctx.fillRect((segment.x * GRID_SIZE) + 4, (segment.y * GRID_SIZE) + 12, 4, 4);
+            } else if (direction === 'up') {
+                ctx.fillRect((segment.x * GRID_SIZE) + 4, (segment.y * GRID_SIZE) + 4, 4, 4);
+                ctx.fillRect((segment.x * GRID_SIZE) + 12, (segment.y * GRID_SIZE) + 4, 4, 4);
+            } else if (direction === 'down') {
+                ctx.fillRect((segment.x * GRID_SIZE) + 4, (segment.y * GRID_SIZE) + GRID_SIZE - 8, 4, 4);
+                ctx.fillRect((segment.x * GRID_SIZE) + 12, (segment.y * GRID_SIZE) + GRID_SIZE - 8, 4, 4);
+            }
+            
+            // Tongue
+            ctx.fillStyle = '#ff0000';
+            if (direction === 'right') {
+                ctx.fillRect((segment.x * GRID_SIZE) + GRID_SIZE, (segment.y * GRID_SIZE) + 8, 6, 2);
+            } else if (direction === 'left') {
+                ctx.fillRect((segment.x * GRID_SIZE) - 6, (segment.y * GRID_SIZE) + 8, 6, 2);
+            } else if (direction === 'up') {
+                ctx.fillRect((segment.x * GRID_SIZE) + 8, (segment.y * GRID_SIZE) - 6, 2, 6);
+            } else if (direction === 'down') {
+                ctx.fillRect((segment.x * GRID_SIZE) + 8, (segment.y * GRID_SIZE) + GRID_SIZE, 2, 6);
+            }
+        }
+    });
+
+    // Draw food
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(food.x * GRID_SIZE, food.y * GRID_SIZE, GRID_SIZE-2, GRID_SIZE-2);
+
+    // Draw obstacles for campaign mode
+    if (gameMode === 'campaign' && currentLevel > 1) {
+        ctx.fillStyle = '#666';
+        campaignLevels[currentLevel-1].obstacles.forEach(obstacle => {
+            ctx.fillRect(
+                obstacle.x * GRID_SIZE, 
+                obstacle.y * GRID_SIZE, 
+                obstacle.width * GRID_SIZE, 
+                obstacle.height * GRID_SIZE
+            );
+        });
+    }
+}
+
+function moveSnake() {
+    const head = {x: snake[0].x, y: snake[0].y};
+
+    switch(direction) {
+        case 'up': head.y--; break;
+        case 'down': head.y++; break;
+        case 'left': head.x--; break;
+        case 'right': head.x++; break;
+    }
+
+    if (isGameOver(head)) {
+        endGame();
+        return;
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+        score++;
+        updateScore();
+        generateFood();
+        
+        if (gameMode === 'campaign' && score >= campaignLevels[currentLevel-1].targetScore) {
+            if (currentLevel < campaignLevels.length) {
+                currentLevel++;
+                snakeSpeed = campaignLevels[currentLevel-1].speed;
+                updateLevelInfo();
+                clearInterval(gameLoop);
+                gameLoop = setInterval(moveSnake, snakeSpeed);
+            }
+        }
+    } else {
+        snake.pop();
+    }
+
+    drawGame();
+}
+
+function isGameOver(head) {
+    if (head.x < 0 || head.x >= canvas.width/GRID_SIZE || 
+        head.y < 0 || head.y >= canvas.height/GRID_SIZE) {
+        return true;
+    }
+
+    if (isCollisionWithSnake(head)) {
+        return true;
+    }
+
+    if (gameMode === 'campaign' && currentLevel > 1) {
+        if (isCollisionWithObstacles(head)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isCollisionWithSnake(position) {
+    return snake.some(segment => segment.x === position.x && segment.y === position.y);
+}
+
+function isCollisionWithObstacles(position) {
+    if (gameMode !== 'campaign' || currentLevel <= 1) return false;
+
+    return campaignLevels[currentLevel-1].obstacles.some(obstacle => {
+        return position.x >= obstacle.x && 
+               position.x < obstacle.x + obstacle.width &&
+               position.y >= obstacle.y && 
+               position.y < obstacle.y + obstacle.height;
+    });
+}
+
+function endGame() {
+    clearInterval(gameLoop);
+    document.getElementById('gameOver').style.display = 'block';
+    document.getElementById('finalScore').textContent = `Final Score: ${score}`;
+}
+
+function startGame(mode) {
+    gameMode = mode;
+    document.getElementById('gameOver').style.display = 'none';
+    initGame();
+    clearInterval(gameLoop);
+    gameLoop = setInterval(moveSnake, snakeSpeed);
+}
+
+document.addEventListener('keydown', (e) => {
+    switch(e.key) {
+        case 'ArrowUp':
+            if (direction !== 'down') direction = 'up';
+            break;
+        case 'ArrowDown':
+            if (direction !== 'up') direction = 'down';
+            break;
+        case 'ArrowLeft':
+            if (direction !== 'right') direction = 'left';
+            break;
+        case 'ArrowRight':
+            if (direction !== 'left') direction = 'right';
+            break;
+    }
+});
+
+document.getElementById('classicMode').addEventListener('click', () => startGame('classic'));
+document.getElementById('campaignMode').addEventListener('click', () => startGame('campaign'));
+document.getElementById('restartButton').addEventListener('click', () => startGame(gameMode));
+document.getElementById('mainMenuButton').addEventListener('click', showMainMenu);
+
+// Show main menu initially
+document.getElementById('gameContainer').style.display = 'none';
+document.getElementById('mainMenu').style.display = 'block';
+</script></body></html>
